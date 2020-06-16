@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import phoneService from './services/phone'
 import axios from 'axios'
 
 const Filter = ({handleSearchChange, value}) => {
@@ -23,11 +24,21 @@ const PersonForm = ({handleSubmit, handleNameChange, handleNumberChange, newName
   )
 }
 
-const Persons = ({searchResult}) =>{
+const Persons = ({searchResult, handleDelete}) =>{
   return(
     <div>
-        {searchResult.map((x) => <li key={x.name}>{x.name} {x.number}</li>)}
-      </div>
+        {searchResult.map((x) => 
+        <li key={x.name}>{x.name} {x.number} <button onClick={() => handleDelete(x)}>delete</button></li>)}
+    </div>
+  )
+}
+
+const Notification = ({message, type}) => {
+  if(message === null){
+    return null
+  }
+  return(
+    <div className={type === 'success' ? "success" :  "error"}>{message}</div>
   )
 }
 
@@ -37,10 +48,14 @@ const App = () => {
   const [ newNumber, setNewNumber ] = useState('')
   const [ newSearch, setNewSearch ] = useState('')
   const [ showFiltered, setShowFiltered ] = useState('false')
+  const [ message, setMessage] = useState('')
+  const [ messageType, setMessageType] = useState(null)
+
+  const baseURL = 'http://localhost:3001/persons';
 
   useEffect(() => {
     axios
-      .get('http://localhost:3001/persons')
+      .get(baseURL)
       .then(response => {
         setPersons(response.data)
       })
@@ -78,12 +93,50 @@ const App = () => {
 
     if(inPersons){
 
-      alert(`${newName} is already added to the phonebook`);
-      return;
+      const findUpdatedContact = persons.find((x) => x.name === personObject.name)
+
+      if(window.confirm(`Would you like to update the number for ${personObject.name}?`)){
+        phoneService.updateContact(findUpdatedContact.id, personObject)
+        .then(response => {
+          setPersons(persons.map((person) => person.id !== findUpdatedContact.id ? person : response.data))
+          setMessage(`Updated ${response.data.name}`);
+          setMessageType(`success`);
+          setTimeout(() =>{
+            setMessage(null);
+          }, 2000)
+        })
+        .catch(response =>{
+          setMessage(`Information of ${findUpdatedContact.name} has already been deleted`);
+          setMessageType(`fail`);
+          setTimeout(() =>{
+            setMessage(null);
+          }, 2000)
+        })
+      }
       
     } else{
-      setPersons(persons.concat(personObject));
-      setNewName('');
+      phoneService.createContact(personObject)
+        .then(returnedContact => {
+          setPersons(persons.concat(returnedContact));
+          setMessage(`Added ${returnedContact.name}`);
+          setMessageType(`success`);
+          setTimeout(() =>{
+            setMessage(null);
+          }, 2000)
+          setNewName('');
+        })
+    }
+  }
+
+  const handleDelete = (x) => {
+    if(window.confirm(`Delete ${x.name}?`)){
+      return phoneService.deleteContact(x.id)
+      .then(deletedContact => {
+        const updatedPersons = persons.filter(person => person.id !== x.id)
+        setPersons(updatedPersons)
+      })
+    } else {
+      return;
     }
   }
 
@@ -95,11 +148,12 @@ const App = () => {
 
   return (
     <div>
-      <h2>Phonebook</h2>
+      <h1>Phonebook</h1>
+      <Notification message={message} type={messageType}/>
       <Filter handleSearchChange={handleSearchChange} value={newSearch} />
       <PersonForm handleSubmit={handleSubmit} handleNameChange={handleNameChange} handleNumberChange={handleNumberChange} nameValue={newName} numberValue={newNumber}/>
       <h2>Numbers</h2>
-      <Persons searchResult={searchResult}/>
+      <Persons handleDelete={handleDelete} searchResult={searchResult}/>
     </div>
   )
 }

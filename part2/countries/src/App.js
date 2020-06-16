@@ -1,29 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios'
 
-const Finder = ({handleSearchChange, value}) => {
+const API_KEY = process.env.REACT_APP_API_KEY;
+
+const Weather = ({capital}) => {
+  const [weatherData, setWeatherData] = useState();
+
+  useEffect(() => {
+    axios
+      .get('http://api.weatherstack.com/current?access_key=' + API_KEY + '&query=' + capital)
+      .then(response => {
+        setWeatherData(response.data.current)
+      })
+  }, [capital])
+
   return(
-    <div>Find Countries <input onChange={handleSearchChange} value={value} /></div>
+    <div>
+      {weatherData 
+        ? <div>
+          <h3>Weather in {capital}</h3>
+            <div>
+              temperature: {weatherData.temperature}
+            </div>
+            <img alt="weather_photo" src={weatherData.weather_icons} />
+            <div>
+              wind: {weatherData ? weatherData.wind_speed + " direction " + weatherData.wind_dir: "Data is not available"}
+            </div>
+          </div>
+        : "Data is not available"
+      }
+    </div>
   )
 }
 
-const Result = ({filteredCountries}) => {
+const TooManyResults = () => {
+  return (<div>Too many many, specify another filter</div>)
+}
+
+const ListMultipleCountries = ({ filteredCountries }) => {
+  const [showInfo, setShowInfo] = useState({});
+
+  const handleCountryClick = (id) => {
+    setShowInfo(prevShowInfo => ({
+      ...prevShowInfo,
+      [id]: !prevShowInfo[id]
+    }));
+  }
+  return (
+    <div>
+
+      {filteredCountries.map((x) => {
+        return (
+          <div>
+            {x.name} <button onClick={() => handleCountryClick(x.numericCode)}>Show</button>
+            {showInfo[x.numericCode] ?
+              <div id={x.numericCode}>
+                <div>capital {x.capital}</div>
+                <div>population {x.population}</div>
+                <h3>Languages</h3>
+                <div>
+                  {x.languages.map((x) => <div>{x.name}</div>)}
+                </div>
+                <img alt="flag" src={x.flag} />
+              </div>
+              : null}
+          </div>
+        )
+      })}
+
+    </div>
+  )
+}
+
+const Result = ({ filteredCountries }) => {
   let result;
-  // console.log("these are the filtered countries", filteredCountries);
-  if (filteredCountries.length > 10){
-    result = <p>Too many mtches, specify another filter</p>
-  } else if (filteredCountries.length <=10 && filteredCountries.length >1){
-    result = <div>{filteredCountries.map((x) => x.name)}</div>
-  } else if(filteredCountries.length === 1){
+  if (filteredCountries.length > 10) {
+    result = <TooManyResults />
+  } else if (filteredCountries.length <= 10 && filteredCountries.length > 1) {
+    result = <ListMultipleCountries filteredCountries={filteredCountries} />
+  } else if (filteredCountries.length === 1) {
     result = (
       <div>
         <h1>{filteredCountries[0].name}</h1>
-        <div>{filteredCountries.capital}</div>
+        <div>capital {filteredCountries[0].capital}</div>
+        <div>population {filteredCountries[0].population}</div>
+        <h3>Languages</h3>
+        <div>
+          {filteredCountries[0].languages.map((x) => <div>{x.name}</div>)}
+        </div>
+        <img alt="flag" src={filteredCountries[0].flag} />
+        <Weather capital={filteredCountries[0].capital}/>
+
       </div>
     )
   }
 
-  return(
+  return (
     <div>
       {result}
     </div>
@@ -31,9 +103,9 @@ const Result = ({filteredCountries}) => {
 }
 
 const App = () => {
-  const [ countries, setCountries ] = useState([])
-  const [ search, setSearch ] = useState('')
-  const [ results, setResults ] = useState([])
+  const [countries, setCountries] = useState([])
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState([])
 
   useEffect(() => {
     axios
@@ -43,23 +115,23 @@ const App = () => {
       })
   }, [])
 
-  const handleSearchChange = (event) =>{
+  const handleSearchChange = (event) => {
     setSearch(event.target.value)
-    console.log('target value is: ', event.target.value);
-    
-    console.log("search value", search)
-    searchCountries();
   }
 
-  const searchCountries = () =>{
+  useEffect(() => {
+    searchCountries();
+  }, [search])
+
+  const searchCountries = () => {
     const filteredCountries = countries.filter((x) => x.name.toLowerCase().includes(search.toLowerCase()));
     setResults(filteredCountries);
   }
 
-  return(
+  return (
     <div>
-    Find Countries <input onChange={handleSearchChange} value={search} />
-    <Result filteredCountries={results} />
+      Find Countries <input onChange={handleSearchChange} value={search} />
+      <Result filteredCountries={results} />
     </div>
   )
 }
