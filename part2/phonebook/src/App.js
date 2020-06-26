@@ -51,11 +51,9 @@ const App = () => {
   const [ message, setMessage] = useState('')
   const [ messageType, setMessageType] = useState(null)
 
-  const baseURL = 'http://localhost:3001/persons';
-
   useEffect(() => {
     axios
-      .get(baseURL)
+      .get(phoneService.baseUrl)
       .then(response => {
         setPersons(response.data)
       })
